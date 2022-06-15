@@ -123,19 +123,20 @@ for c in root.findall(MW_NS+'page'):
     #sin1 = sin1.lower()
     
     # esplode list
-    sinonimi = [x.strip() for x in sin1.split(',')]
-    sinonimi = map(str.strip, sin1.split(','))
+    #sin_list = [x.strip() for x in sin1.split(',')]
+    sin_list = map(str.strip, sin1.split(','))
     
     wiki_link = "https://it.wiktionary.org/wiki/"+wiki_title.text
+    sinonimi = '|'.join(sin_list)
 
     # inserisce nel db sqlite3 oppure stampa lemma, sinonimi e link alla pagina del wikizionario
     if args.sql:
-        cur.execute("INSERT INTO " + args.table + " (`lemma`, `link`, `sinonimi`) VALUES (?, ?, ?)", (lemma, wiki_link, sin1))
+        cur.execute("INSERT INTO " + args.table + " (`lemma`, `link`, `sinonimi`) VALUES (?, ?, ?)", (lemma, wiki_link, sinonimi))
     else:
         if args.link:
-            print(lemma + "," + sin1 + "," + wiki_link)
+            print(lemma + ";" + sinonimi + ";" + wiki_link)
         else:
-            print("*", lemma + ";" + '|'.join(sinonimi))
+            print(lemma + ";" + sinonimi)
 
 
 if args.sql:

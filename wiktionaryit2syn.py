@@ -5,6 +5,9 @@ import sqlite3
 
 MW_NS = '{http://www.mediawiki.org/xml/export-0.10/}'
 SYN_TPL = "{{-sin-}}"
+p1 = re.compile(r'<!--(.|\s|\n)*?(-->|$)')
+p2 = re.compile(r'\([^)]*\)') # elimina glosse
+p3 = re.compile(r'\{[^)]*\}') # elimina template
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--filename', type=str, required=False, default='itwiktionary-latest-pages-meta-current.xml')
@@ -59,15 +62,17 @@ for c in root.findall(MW_NS+'page'):
     if wiki_text is None:
         continue
 
-    p = re.compile(r'<!--(.|\s|\n)*?-->')
-    wiki_text.text = re.sub(p, '', wiki_text.text)
     start_it = wiki_text.text.find("{{-it-}}")
 
     # salta pagine senza definizione in italiano
     if wiki_text.text.find("{{-it-}}") < 0:
         continue
 
-    wiki_text = wiki_text.text[start_it:]                
+    wiki_text = wiki_text.text[start_it:]
+    
+    # toglie codice html               
+    wiki_text = re.sub(p1, '', wiki_text)
+
     start_sin = wiki_text.find(SYN_TPL)
 
     # salta pagine senza sinonimi
@@ -82,32 +87,36 @@ for c in root.findall(MW_NS+'page'):
     other_lang_start2 = wiki_text[10:].find("=={{-")
     if other_lang_start2 > 0 and start_sin > other_lang_start2:
         continue
-    
-    # estrate tutta la parte dei sinonimi
-    end_sin = wiki_text[start_sin + len(SYN_TPL) + 3:].find("{{")
+        
+    # estrate tutta la parte dei sinonimi fino al prossimo template/sezione/lingua
+    end_sin = len(wiki_text)
+    if wiki_text[start_sin + len(SYN_TPL) + 3:].find("{{-") > 0 and wiki_text[start_sin + len(SYN_TPL) + 3:].find("{{-") < end_sin:
+        end_sin = wiki_text[start_sin + len(SYN_TPL) + 3:].find("{{-")
+    if wiki_text[start_sin + len(SYN_TPL) + 3:].find("==") > 0 and wiki_text[start_sin + len(SYN_TPL) + 3:].find("==") < end_sin:
+        end_sin = wiki_text[start_sin + len(SYN_TPL) + 3:].find("==")
+        
     sin1 = wiki_text[start_sin+len(SYN_TPL):start_sin+len(SYN_TPL)+end_sin+3].strip()
 
     # salta pagine con sinonimi vuota
     if len(sin1) < 1:
         continue
 
-    # salta pagine con codice html o template nei sinonimi
-    if sin1.find("<") > -1 or sin1.find(">") > -1 or sin1.find("!") > -1 or sin1.find("{") > -1:
-        continue
-
     # toglie le glosse tra parentesi per la disambiguazione dei termini
+    
+    sin1 = sin1.replace("'' ", "''")
+    sin1 = sin1.replace(" ''", "''")
     sin1 = sin1.replace("''(", "(")
     sin1 = sin1.replace("'(", "(")
     sin1 = sin1.replace(")''", ")")
     sin1 = sin1.replace(")'", ")")
-    sin1 = re.sub(p, '', sin1)
-    p = re.compile(r'\([^)]*\)')
-    sin1 = re.sub(p, '', sin1)
+    sin1 = re.sub(p2, '', sin1)
+    sin1 = re.sub(p3, '', sin1)
+
 
     # elimina punto e virgola, punti, asterischi, e link con quadre
     sin1 = sin1.replace("\n", ",")
     sin1 = sin1.replace("  ", " ")
-    sin1 = sin1.replace(";", "")
+    sin1 = sin1.replace(";", ",")
     sin1 = sin1.replace(".", "")
     sin1 = sin1.replace("*", "")
     sin1 = sin1.replace("[", "")
